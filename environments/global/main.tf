@@ -8,8 +8,9 @@ locals {
       priority = 0
       action   = "block"
       rate_based_statement = {
-        limit              = 500
-        aggregate_key_type = "IP"
+        limit                 = 500
+        aggregate_key_type    = "IP"
+        evaluation_window_sec = 300
       }
       visibility_config = {
         cloudwatch_metrics_enabled = "true"
