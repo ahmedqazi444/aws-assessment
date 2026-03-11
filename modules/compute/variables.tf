@@ -25,13 +25,8 @@ variable "github_repo" {
 }
 
 variable "sns_topic_arn" {
-  description = "SNS topic ARN"
+  description = "SNS topic ARN for candidate verification"
   type        = string
-}
-
-variable "send_sns" {
-  description = "Toggle SNS publishing"
-  type        = bool
 }
 
 variable "cognito_user_pool_arn" {

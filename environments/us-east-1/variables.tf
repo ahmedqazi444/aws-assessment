@@ -31,15 +31,8 @@ variable "github_repo" {
 }
 
 variable "sns_topic_arn" {
-  description = "SNS topic ARN"
+  description = "SNS topic ARN for candidate verification (set via GitHub secrets)"
   type        = string
-  default     = "arn:aws:sns:us-east-1:000000000000:dummy-topic"
-}
-
-variable "send_sns" {
-  description = "Toggle SNS publishing"
-  type        = bool
-  default     = true
 }
 
 #------------------------------------------------------------------------------

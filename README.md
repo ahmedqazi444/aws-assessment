@@ -298,7 +298,7 @@ This workflow is designed for public repositories:
 ## Infrastructure Security
 
 - **Cognito JWT Auth** - All API routes require valid JWT token
-- **WAF Protection** - Rate limiting (100 req/5min/IP) + AWS Managed Common Rules
+- **WAF Protection** - Rate limiting (500 req/5min/IP) + AWS Managed Common Rules + Known Bad Inputs
 - **Least-Privilege IAM** - Each Lambda and ECS task has minimal required permissions
 - **Secrets Manager** - Test user password stored securely, never in code/state
 - **VPC Flow Logs** - Network traffic logging enabled

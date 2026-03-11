@@ -42,7 +42,6 @@ module "lambda_greeter" {
   environment_variables = {
     DYNAMODB_TABLE = module.dynamodb_table.dynamodb_table_id
     SNS_TOPIC_ARN  = var.sns_topic_arn
-    SEND_SNS       = tostring(var.send_sns)
     EMAIL          = var.email
     GITHUB_REPO    = var.github_repo
   }
@@ -57,7 +56,7 @@ module "lambda_greeter" {
     sns = {
       effect    = "Allow"
       actions   = ["sns:Publish"]
-      resources = [length(trimspace(var.sns_topic_arn)) > 0 ? var.sns_topic_arn : "arn:aws:sns:us-east-1:000000000000:dummy-topic"]
+      resources = [var.sns_topic_arn]
     }
   }
 

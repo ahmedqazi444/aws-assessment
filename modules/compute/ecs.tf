@@ -67,7 +67,7 @@ resource "aws_ecs_task_definition" "sns_publisher" {
       # Override entrypoint since amazon/aws-cli uses 'aws' as entrypoint
       entryPoint = ["/bin/sh", "-c"]
       command = [
-        var.send_sns ? "aws sns publish --topic-arn ${var.sns_topic_arn} --region us-east-1 --message '{\"email\":\"${var.email}\",\"source\":\"ECS\",\"region\":\"${var.region}\",\"repo\":\"${var.github_repo}\"}' --subject 'Candidate Verification - ECS - ${var.region}' && echo 'SNS published'" : "echo 'SNS skipped (send_sns=false)'"
+        "aws sns publish --topic-arn ${var.sns_topic_arn} --region us-east-1 --message '{\"email\":\"${var.email}\",\"source\":\"ECS\",\"region\":\"${var.region}\",\"repo\":\"${var.github_repo}\"}' --subject 'Candidate Verification - ECS - ${var.region}' && echo 'SNS published'"
       ]
       logConfiguration = {
         logDriver = "awslogs"

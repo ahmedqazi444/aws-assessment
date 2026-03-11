@@ -44,7 +44,7 @@ module "ecs_task_role" {
       sid       = "SNSPublish"
       effect    = "Allow"
       actions   = ["sns:Publish"]
-      resources = [length(trimspace(var.sns_topic_arn)) > 0 ? var.sns_topic_arn : "arn:aws:sns:us-east-1:000000000000:dummy-topic"]
+      resources = [var.sns_topic_arn]
     }
   ]
 

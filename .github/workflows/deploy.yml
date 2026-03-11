@@ -229,7 +229,6 @@ jobs:
           label: ${{ matrix.region }}
           variables: |
             sns_topic_arn = "${{ secrets.SNS_TOPIC_ARN }}"
-            send_sns = true
 
   #────────────────────────────────────────────────────────────────
   # APPLY - Global first
@@ -319,7 +318,6 @@ jobs:
           auto_approve: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
           variables: |
             sns_topic_arn = "${{ secrets.SNS_TOPIC_ARN }}"
-            send_sns = true
 
   #────────────────────────────────────────────────────────────────
   # TEST - Runs after all Apply jobs
@@ -409,7 +407,6 @@ jobs:
           destroy: true
           variables: |
             sns_topic_arn = "${{ secrets.SNS_TOPIC_ARN }}"
-            send_sns = true
 
   #────────────────────────────────────────────────────────────────
   # DESTROY - Regions first, then global
@@ -458,7 +455,6 @@ jobs:
           path: environments/${{ matrix.region }}
           variables: |
             sns_topic_arn = "${{ secrets.SNS_TOPIC_ARN }}"
-            send_sns = true
 
   destroy-global:
     name: Destroy Global

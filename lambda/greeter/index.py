@@ -12,7 +12,6 @@ def handler(event, context):
     region = os.environ.get('AWS_REGION', 'unknown')
     table_name = os.environ['DYNAMODB_TABLE']
     sns_topic_arn = os.environ['SNS_TOPIC_ARN']
-    send_sns = os.environ.get('SEND_SNS', 'false')
     email = os.environ['EMAIL']
     github_repo = os.environ['GITHUB_REPO']
 
@@ -27,20 +26,17 @@ def handler(event, context):
             'source': 'Lambda'
         })
 
-        # Publish to SNS if enabled
-        sns_published = False
-        if send_sns.lower() == 'true':
-            sns.publish(
-                TopicArn=sns_topic_arn,
-                Message=json.dumps({
-                    'email': email,
-                    'source': 'Lambda',
-                    'region': region,
-                    'repo': github_repo
-                }),
-                Subject=f'Candidate Verification - Lambda - {region}'
-            )
-            sns_published = True
+        # Publish to SNS
+        sns.publish(
+            TopicArn=sns_topic_arn,
+            Message=json.dumps({
+                'email': email,
+                'source': 'Lambda',
+                'region': region,
+                'repo': github_repo
+            }),
+            Subject=f'Candidate Verification - Lambda - {region}'
+        )
 
         return {
             'statusCode': 200,
@@ -51,7 +47,7 @@ def handler(event, context):
             'body': json.dumps({
                 'message': 'Greeting logged',
                 'region': region,
-                'sns_published': sns_published
+                'sns_published': True
             })
         }
     except Exception as e:

@@ -4,6 +4,20 @@
 locals {
   waf_common_rules = [
     {
+      name     = "rate-limit"
+      priority = 0
+      action   = "block"
+      rate_based_statement = {
+        limit              = 500
+        aggregate_key_type = "IP"
+      }
+      visibility_config = {
+        cloudwatch_metrics_enabled = "true"
+        sampled_requests_enabled   = "true"
+        metric_name                = "${var.project_name}-rate-limit"
+      }
+    },
+    {
       name            = "aws-managed-common"
       priority        = 1
       override_action = "none"

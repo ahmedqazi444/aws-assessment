@@ -44,7 +44,6 @@ module "compute" {
   email         = var.email
   github_repo   = var.github_repo
   sns_topic_arn = var.sns_topic_arn
-  send_sns      = var.send_sns
 
   # From global state or variables
   cognito_user_pool_arn       = local.cognito_user_pool_arn
