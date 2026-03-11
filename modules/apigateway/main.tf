@@ -1,11 +1,15 @@
-# modules/compute/apigateway.tf
+# modules/apigateway/main.tf
+
+locals {
+  api_gateway_domain      = "${aws_api_gateway_rest_api.main.id}.execute-api.${var.region}.amazonaws.com"
+  api_gateway_origin_path = "/${aws_api_gateway_stage.prod.stage_name}"
+}
 
 #------------------------------------------------------------------------------
 # API Gateway Account Settings - CloudWatch Logging Role
-# Required for access logging on API Gateway stages
 #------------------------------------------------------------------------------
 resource "aws_iam_role" "api_gateway_cloudwatch" {
-  name = "${local.name_prefix}-apigw-cloudwatch"
+  name = "${var.name_prefix}-apigw-cloudwatch"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -18,7 +22,7 @@ resource "aws_iam_role" "api_gateway_cloudwatch" {
     }]
   })
 
-  tags = var.common_tags
+  tags = var.tags
 }
 
 resource "aws_iam_role_policy_attachment" "api_gateway_cloudwatch" {
@@ -34,27 +38,26 @@ resource "aws_api_gateway_account" "main" {
 }
 
 #------------------------------------------------------------------------------
-# API Gateway REST API (v1) with COGNITO_USER_POOLS Authorizer
-# Using REST API to enable native Cognito Authorizer integration
+# API Gateway REST API
 #------------------------------------------------------------------------------
 resource "aws_api_gateway_rest_api" "main" {
   region      = var.region
-  name        = "${local.name_prefix}-api"
+  name        = "${var.name_prefix}-api"
   description = "Unleash Live assessment API - ${var.region}"
 
   endpoint_configuration {
     types = ["REGIONAL"]
   }
 
-  tags = var.common_tags
+  tags = var.tags
 }
 
 #------------------------------------------------------------------------------
-# Cognito Authorizer - Points directly to us-east-1 Cognito User Pool
+# Cognito Authorizer
 #------------------------------------------------------------------------------
 resource "aws_api_gateway_authorizer" "cognito" {
   region          = var.region
-  name            = "${local.name_prefix}-cognito-auth"
+  name            = "${var.name_prefix}-cognito-auth"
   rest_api_id     = aws_api_gateway_rest_api.main.id
   type            = "COGNITO_USER_POOLS"
   provider_arns   = [var.cognito_user_pool_arn]
@@ -87,7 +90,7 @@ resource "aws_api_gateway_integration" "greet" {
   http_method             = aws_api_gateway_method.greet.http_method
   integration_http_method = "POST"
   type                    = "AWS_PROXY"
-  uri                     = module.lambda_greeter.lambda_function_invoke_arn
+  uri                     = var.greeter_invoke_arn
 }
 
 #------------------------------------------------------------------------------
@@ -116,11 +119,11 @@ resource "aws_api_gateway_integration" "dispatch" {
   http_method             = aws_api_gateway_method.dispatch.http_method
   integration_http_method = "POST"
   type                    = "AWS_PROXY"
-  uri                     = module.lambda_dispatcher.lambda_function_invoke_arn
+  uri                     = var.dispatcher_invoke_arn
 }
 
 #------------------------------------------------------------------------------
-# CORS Support - OPTIONS methods for preflight requests
+# CORS Support - OPTIONS methods
 #------------------------------------------------------------------------------
 resource "aws_api_gateway_method" "greet_options" {
   region        = var.region
@@ -232,7 +235,6 @@ resource "aws_api_gateway_deployment" "main" {
     aws_api_gateway_integration.dispatch_options,
   ]
 
-  # Force new deployment when any method/integration changes
   triggers = {
     redeployment = sha1(jsonencode([
       aws_api_gateway_resource.greet.id,
@@ -258,7 +260,6 @@ resource "aws_api_gateway_stage" "prod" {
 
   xray_tracing_enabled = true
 
-  # Ensure CloudWatch role is configured before enabling logging
   depends_on = [aws_api_gateway_account.main]
 
   access_log_settings {
@@ -274,7 +275,7 @@ resource "aws_api_gateway_stage" "prod" {
     })
   }
 
-  tags = var.common_tags
+  tags = var.tags
 }
 
 #------------------------------------------------------------------------------
@@ -300,10 +301,10 @@ resource "aws_api_gateway_method_settings" "all" {
 #------------------------------------------------------------------------------
 resource "aws_cloudwatch_log_group" "api_access" {
   region            = var.region
-  name              = "/aws/apigateway/${local.name_prefix}-api"
-  retention_in_days = local.cloudwatch_defaults.log_retention_days
+  name              = "/aws/apigateway/${var.name_prefix}-api"
+  retention_in_days = var.log_retention_days
 
-  tags = var.common_tags
+  tags = var.tags
 }
 
 #------------------------------------------------------------------------------
@@ -313,7 +314,7 @@ resource "aws_lambda_permission" "apigw_greeter" {
   region        = var.region
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = module.lambda_greeter.lambda_function_name
+  function_name = var.greeter_function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.main.execution_arn}/*/*"
 }
@@ -322,7 +323,55 @@ resource "aws_lambda_permission" "apigw_dispatcher" {
   region        = var.region
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = module.lambda_dispatcher.lambda_function_name
+  function_name = var.dispatcher_function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.main.execution_arn}/*/*"
+}
+
+#------------------------------------------------------------------------------
+# CloudFront Distribution
+#------------------------------------------------------------------------------
+module "cloudfront" {
+  source  = "terraform-aws-modules/cloudfront/aws"
+  version = "6.4.0"
+
+  comment             = "${var.name_prefix}-api"
+  enabled             = true
+  is_ipv6_enabled     = true
+  price_class         = "PriceClass_100"
+  wait_for_deployment = false
+
+  web_acl_id = var.waf_web_acl_arn
+
+  origin_access_control = {}
+
+  origin = {
+    api_gateway = {
+      domain_name = local.api_gateway_domain
+      origin_path = local.api_gateway_origin_path
+      custom_origin_config = {
+        http_port              = 80
+        https_port             = 443
+        origin_protocol_policy = "https-only"
+        origin_ssl_protocols   = ["TLSv1.2"]
+      }
+    }
+  }
+
+  default_cache_behavior = {
+    target_origin_id       = "api_gateway"
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods         = ["GET", "HEAD"]
+    compress               = true
+
+    cache_policy_id          = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad" # CachingDisabled
+    origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac" # AllViewerExceptHostHeader
+  }
+
+  viewer_certificate = {
+    cloudfront_default_certificate = true
+  }
+
+  tags = var.tags
 }

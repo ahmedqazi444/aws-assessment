@@ -1,18 +1,16 @@
-# modules/compute/ecs.tf
+# modules/ecs/main.tf
 
 #------------------------------------------------------------------------------
-# ECS Cluster using terraform-aws-modules
+# ECS Cluster
 #------------------------------------------------------------------------------
 module "ecs_cluster" {
   source  = "terraform-aws-modules/ecs/aws//modules/cluster"
   version = "7.3.1"
 
-  # Region meta-argument (AWS Provider 6.0+)
   region = var.region
 
-  name = "${local.name_prefix}-cluster"
+  name = "${var.name_prefix}-cluster"
 
-  # Container Insights - enhanced mode
   setting = [
     {
       name  = "containerInsights"
@@ -20,7 +18,6 @@ module "ecs_cluster" {
     }
   ]
 
-  # Fargate capacity provider
   cluster_capacity_providers = ["FARGATE"]
 
   default_capacity_provider_strategy = {
@@ -30,7 +27,7 @@ module "ecs_cluster" {
     }
   }
 
-  tags = var.common_tags
+  tags = var.tags
 }
 
 #------------------------------------------------------------------------------
@@ -38,33 +35,75 @@ module "ecs_cluster" {
 #------------------------------------------------------------------------------
 resource "aws_cloudwatch_log_group" "ecs" {
   region            = var.region
-  name              = "/ecs/${local.name_prefix}-${var.ecs_task_config.name}"
-  retention_in_days = local.cloudwatch_defaults.log_retention_days
+  name              = "/ecs/${var.name_prefix}-${var.task_name}"
+  retention_in_days = var.log_retention_days
 
-  tags = var.common_tags
+  tags = var.tags
+}
+
+#------------------------------------------------------------------------------
+# ECS Execution Role
+#------------------------------------------------------------------------------
+module "ecs_execution_role" {
+  source  = "terraform-aws-modules/iam/aws//modules/iam-assumable-role"
+  version = "5.52.2"
+
+  create_role       = true
+  role_name         = "${var.name_prefix}-ecs-exec"
+  role_requires_mfa = false
+
+  trusted_role_services = ["ecs-tasks.amazonaws.com"]
+
+  custom_role_policy_arns = [
+    "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+  ]
+
+  tags = var.tags
+}
+
+#------------------------------------------------------------------------------
+# ECS Task Role (SNS publish only)
+#------------------------------------------------------------------------------
+module "ecs_task_role" {
+  source  = "terraform-aws-modules/iam/aws//modules/iam-assumable-role"
+  version = "5.52.2"
+
+  create_role       = true
+  role_name         = "${var.name_prefix}-ecs-task"
+  role_requires_mfa = false
+
+  trusted_role_services = ["ecs-tasks.amazonaws.com"]
+
+  inline_policy_statements = [
+    {
+      sid       = "SNSPublish"
+      effect    = "Allow"
+      actions   = ["sns:Publish"]
+      resources = [var.sns_topic_arn]
+    }
+  ]
+
+  tags = var.tags
 }
 
 #------------------------------------------------------------------------------
 # ECS Task Definition
-# Note: Using raw resource instead of service module because this is a
-# run-once task triggered by Lambda, not a long-running service
 #------------------------------------------------------------------------------
 resource "aws_ecs_task_definition" "sns_publisher" {
   region                   = var.region
-  family                   = "${local.name_prefix}-${var.ecs_task_config.name}"
+  family                   = "${var.name_prefix}-${var.task_name}"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = tostring(var.ecs_task_config.cpu)
-  memory                   = tostring(var.ecs_task_config.memory)
+  cpu                      = tostring(var.task_cpu)
+  memory                   = tostring(var.task_memory)
   execution_role_arn       = module.ecs_execution_role.iam_role_arn
   task_role_arn            = module.ecs_task_role.iam_role_arn
 
   container_definitions = jsonencode([
     {
-      name      = var.ecs_task_config.name
-      image     = var.ecs_task_config.image
-      essential = true
-      # Override entrypoint since amazon/aws-cli uses 'aws' as entrypoint
+      name       = var.task_name
+      image      = var.task_image
+      essential  = true
       entryPoint = ["/bin/sh", "-c"]
       command = [
         "aws sns publish --topic-arn ${var.sns_topic_arn} --region us-east-1 --message '{\"email\":\"${var.email}\",\"source\":\"ECS\",\"region\":\"${var.region}\",\"repo\":\"${var.github_repo}\"}' --subject 'Candidate Verification - ECS - ${var.region}' && echo 'SNS published'"
@@ -80,5 +119,5 @@ resource "aws_ecs_task_definition" "sns_publisher" {
     }
   ])
 
-  tags = var.common_tags
+  tags = var.tags
 }

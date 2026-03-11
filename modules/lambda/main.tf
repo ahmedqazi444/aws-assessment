@@ -1,8 +1,24 @@
-# modules/compute/lambda.tf
+# modules/lambda/main.tf
+
+locals {
+  lambda_defaults = {
+    runtime      = "python3.12"
+    architecture = "arm64"
+  }
+
+  greeter_config = merge(local.lambda_defaults, {
+    timeout     = var.greeter_timeout
+    memory_size = var.greeter_memory_size
+  })
+
+  dispatcher_config = merge(local.lambda_defaults, {
+    timeout     = var.dispatcher_timeout
+    memory_size = var.dispatcher_memory_size
+  })
+}
 
 #------------------------------------------------------------------------------
 # Lambda Package Archives
-# Pre-built using archive_file for consistent hashes between plan and apply
 #------------------------------------------------------------------------------
 data "archive_file" "greeter" {
   type        = "zip"
@@ -18,16 +34,14 @@ data "archive_file" "dispatcher" {
 
 #------------------------------------------------------------------------------
 # Greeter Lambda
-# Writes greeting to DynamoDB and publishes to SNS (if enabled)
 #------------------------------------------------------------------------------
 module "lambda_greeter" {
   source  = "terraform-aws-modules/lambda/aws"
   version = "8.7.0"
 
-  # Region meta-argument (AWS Provider 6.0+)
   region = var.region
 
-  function_name = "${local.name_prefix}-greeter"
+  function_name = "${var.name_prefix}-greeter"
   description   = "Greeter Lambda - writes to DynamoDB and publishes to SNS"
   handler       = "index.handler"
   runtime       = local.greeter_config.runtime
@@ -35,12 +49,11 @@ module "lambda_greeter" {
   timeout       = local.greeter_config.timeout
   memory_size   = local.greeter_config.memory_size
 
-  # Use pre-built package for consistent hashes in CI/CD
   create_package         = false
   local_existing_package = data.archive_file.greeter.output_path
 
   environment_variables = {
-    DYNAMODB_TABLE = module.dynamodb_table.dynamodb_table_id
+    DYNAMODB_TABLE = var.dynamodb_table_name
     SNS_TOPIC_ARN  = var.sns_topic_arn
     EMAIL          = var.email
     GITHUB_REPO    = var.github_repo
@@ -51,7 +64,7 @@ module "lambda_greeter" {
     dynamodb = {
       effect    = "Allow"
       actions   = ["dynamodb:PutItem"]
-      resources = [module.dynamodb_table.dynamodb_table_arn]
+      resources = [var.dynamodb_table_arn]
     }
     sns = {
       effect    = "Allow"
@@ -60,25 +73,23 @@ module "lambda_greeter" {
     }
   }
 
-  cloudwatch_logs_retention_in_days = local.cloudwatch_defaults.log_retention_days
+  cloudwatch_logs_retention_in_days = var.log_retention_days
 
-  tags = merge(var.common_tags, {
-    Name = "${local.name_prefix}-greeter"
+  tags = merge(var.tags, {
+    Name = "${var.name_prefix}-greeter"
   })
 }
 
 #------------------------------------------------------------------------------
 # Dispatcher Lambda
-# Triggers ECS Fargate task to publish SNS message
 #------------------------------------------------------------------------------
 module "lambda_dispatcher" {
   source  = "terraform-aws-modules/lambda/aws"
   version = "8.7.0"
 
-  # Region meta-argument (AWS Provider 6.0+)
   region = var.region
 
-  function_name = "${local.name_prefix}-dispatcher"
+  function_name = "${var.name_prefix}-dispatcher"
   description   = "Dispatcher Lambda - runs ECS task"
   handler       = "index.handler"
   runtime       = local.dispatcher_config.runtime
@@ -86,15 +97,14 @@ module "lambda_dispatcher" {
   timeout       = local.dispatcher_config.timeout
   memory_size   = local.dispatcher_config.memory_size
 
-  # Use pre-built package for consistent hashes in CI/CD
   create_package         = false
   local_existing_package = data.archive_file.dispatcher.output_path
 
   environment_variables = {
-    ECS_CLUSTER_ARN     = module.ecs_cluster.arn
-    ECS_TASK_DEFINITION = aws_ecs_task_definition.sns_publisher.arn
-    SUBNETS             = join(",", module.vpc.public_subnets)
-    SECURITY_GROUP      = aws_security_group.ecs.id
+    ECS_CLUSTER_ARN     = var.ecs_cluster_arn
+    ECS_TASK_DEFINITION = var.ecs_task_definition_arn
+    SUBNETS             = join(",", var.subnets)
+    SECURITY_GROUP      = var.security_group_id
   }
 
   attach_policy_statements = true
@@ -102,18 +112,18 @@ module "lambda_dispatcher" {
     ecs = {
       effect    = "Allow"
       actions   = ["ecs:RunTask"]
-      resources = [aws_ecs_task_definition.sns_publisher.arn]
+      resources = [var.ecs_task_definition_arn]
     }
     iam_pass_role = {
       effect    = "Allow"
       actions   = ["iam:PassRole"]
-      resources = [module.ecs_task_role.iam_role_arn, module.ecs_execution_role.iam_role_arn]
+      resources = var.ecs_role_arns
     }
   }
 
-  cloudwatch_logs_retention_in_days = local.cloudwatch_defaults.log_retention_days
+  cloudwatch_logs_retention_in_days = var.log_retention_days
 
-  tags = merge(var.common_tags, {
-    Name = "${local.name_prefix}-dispatcher"
+  tags = merge(var.tags, {
+    Name = "${var.name_prefix}-dispatcher"
   })
 }

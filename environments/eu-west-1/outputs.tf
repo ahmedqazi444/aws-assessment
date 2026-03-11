@@ -2,12 +2,12 @@
 
 output "cloudfront_url" {
   description = "CloudFront distribution URL"
-  value       = module.compute.cloudfront_url
+  value       = module.apigateway.cloudfront_url
 }
 
 output "api_gateway_url" {
   description = "API Gateway URL (direct, for debugging)"
-  value       = module.compute.api_gateway_url
+  value       = module.apigateway.api_gateway_url
 }
 
 output "region" {
