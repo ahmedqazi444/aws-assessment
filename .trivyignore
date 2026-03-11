@@ -1,0 +1,18 @@
+# .trivyignore
+# Trivy ignore file for known acceptable findings
+# https://aquasecurity.github.io/trivy/latest/docs/configuration/filtering/
+
+# ECS Fargate tasks need HTTPS (443) egress to 0.0.0.0/0 to reach
+# ECR (pull images), SNS (publish messages), and CloudWatch (logs).
+# Restricting to VPC endpoints would add cost/complexity for a dev assessment.
+AVD-AWS-0104
+
+# CloudFront uses the default *.cloudfront.net certificate which only
+# supports minimum_protocol_version = "TLSv1". Setting TLSv1.2 requires
+# a custom domain + ACM certificate. Acceptable for this assessment.
+AVD-AWS-0013
+
+# Bootstrap S3 bucket uses AWS-managed KMS (sse_algorithm = "aws:kms")
+# instead of customer-managed key. AWS-managed KMS is acceptable for
+# Terraform state bucket in this assessment context.
+AVD-AWS-0132

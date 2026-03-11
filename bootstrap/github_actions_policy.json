@@ -1,0 +1,40 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "TerraformDeployment",
+      "Effect": "Allow",
+      "Action": [
+        "acm:*",
+        "apigateway:*",
+        "cloudfront:*",
+        "cloudwatch:*",
+        "cognito-idp:*",
+        "dynamodb:*",
+        "ec2:*",
+        "ecs:*",
+        "iam:*",
+        "lambda:*",
+        "logs:*",
+        "secretsmanager:*",
+        "wafv2:*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "S3StateBucket",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:ListBucket",
+        "s3:GetBucketVersioning"
+      ],
+      "Resource": [
+        "arn:aws:s3:::unleash-assessment-tfstate-*",
+        "arn:aws:s3:::unleash-assessment-tfstate-*/*"
+      ]
+    }
+  ]
+}

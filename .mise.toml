@@ -1,0 +1,11 @@
+# .mise.toml
+# Tool version management — install all with: mise install
+# https://mise.jdx.dev/
+
+[tools]
+terraform     = "1.10.5"
+pre-commit    = "4.0.1"
+terraform-docs = "0.19.0"
+tflint        = "0.55.1"
+trivy         = "0.59.1"
+jq            = "1.7.1"

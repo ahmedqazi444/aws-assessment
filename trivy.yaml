@@ -1,0 +1,15 @@
+timeout: 5m0s
+exit-code: 1
+report: all
+severity:
+  - HIGH
+  - CRITICAL
+misconfiguration:
+  scanners:
+    - terraform
+scan:
+  scanners:
+    - secret
+    - misconfig
+  skip-dirs:
+    - .terraform
