@@ -1,5 +1,5 @@
 # environments/us-east-1/data.tf
-# Read outputs from global state
+# Read outputs from global state (global must be applied first)
 
 data "terraform_remote_state" "global" {
   backend = "s3"
