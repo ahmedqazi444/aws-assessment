@@ -1,6 +1,5 @@
 # environments/us-east-1/backend.tf
-# Regional compute state for us-east-1
-
+# Regional compute and networking resources for us-east-1
 terraform {
   backend "s3" {
     bucket       = "unleash-assessment-tfstate-003767002475"
