@@ -53,11 +53,10 @@ jobs:
       !(github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy')
     steps:
       - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: ${{ env.TF_VERSION }}
       - name: Terraform Format Check
-        run: terraform fmt -check -recursive -diff
+        uses: dflook/terraform-fmt-check@v2
+        with:
+          path: .
 
   validate:
     name: Validate ${{ matrix.component }}
@@ -69,15 +68,10 @@ jobs:
         component: [global, us-east-1, eu-west-1]
     steps:
       - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: ${{ env.TF_VERSION }}
-      - name: Terraform Init
-        run: terraform init -backend=false
-        working-directory: environments/${{ matrix.component }}
       - name: Terraform Validate
-        run: terraform validate
-        working-directory: environments/${{ matrix.component }}
+        uses: dflook/terraform-validate@v2
+        with:
+          path: environments/${{ matrix.component }}
 
   tflint:
     name: TFLint
