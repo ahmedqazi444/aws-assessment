@@ -19,7 +19,11 @@
 
 | Name | Source | Version |
 |------|--------|---------|
-| <a name="module_compute"></a> [compute](#module\_compute) | ../../modules/compute | n/a |
+| <a name="module_apigateway"></a> [apigateway](#module\_apigateway) | ../../modules/apigateway | n/a |
+| <a name="module_dynamodb"></a> [dynamodb](#module\_dynamodb) | ../../modules/dynamodb | n/a |
+| <a name="module_ecs"></a> [ecs](#module\_ecs) | ../../modules/ecs | n/a |
+| <a name="module_lambda"></a> [lambda](#module\_lambda) | ../../modules/lambda | n/a |
+| <a name="module_vpc"></a> [vpc](#module\_vpc) | ../../modules/vpc | n/a |
 
 ## Resources
 
@@ -35,8 +39,7 @@
 | <a name="input_email"></a> [email](#input\_email) | Candidate email for SNS payload | `string` | `"ahmed_qazi444@hotmail.com"` | no |
 | <a name="input_github_repo"></a> [github\_repo](#input\_github\_repo) | GitHub repo URL for SNS payload | `string` | `"https://github.com/ahmedqazi444/aws-assessment"` | no |
 | <a name="input_project_name"></a> [project\_name](#input\_project\_name) | Project name for resource naming | `string` | `"unleash"` | no |
-| <a name="input_send_sns"></a> [send\_sns](#input\_send\_sns) | Toggle SNS publishing | `bool` | `true` | no |
-| <a name="input_sns_topic_arn"></a> [sns\_topic\_arn](#input\_sns\_topic\_arn) | SNS topic ARN | `string` | `"arn:aws:sns:us-east-1:000000000000:dummy-topic"` | no |
+| <a name="input_sns_topic_arn"></a> [sns\_topic\_arn](#input\_sns\_topic\_arn) | SNS topic ARN for candidate verification (set via GitHub secrets) | `string` | n/a | yes |
 | <a name="input_state_bucket"></a> [state\_bucket](#input\_state\_bucket) | S3 bucket for terraform state | `string` | `"unleash-assessment-tfstate-003767002475"` | no |
 | <a name="input_vpc_cidr"></a> [vpc\_cidr](#input\_vpc\_cidr) | VPC CIDR block | `string` | `"10.1.0.0/16"` | no |
 

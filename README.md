@@ -150,7 +150,31 @@ AWS provider v6 introduced [enhanced multi-region support](https://registry.terr
 
 - Terraform >= 1.10
 - AWS CLI v2 configured with credentials
+- Python 3 and `pip` (for pre-commit)
 - `jq` and `curl` (for test script)
+
+### Install Pre-commit Hooks
+
+```bash
+pip install pre-commit
+pre-commit install
+pre-commit install --hook-type commit-msg
+```
+
+This sets up local hooks that run automatically on each commit:
+- **Conventional commits** — enforces commit message format
+- **terraform_fmt** — auto-formats `.tf` files
+- **terraform_docs** — generates module documentation
+- **terraform_validate** — validates configuration
+- **terraform_providers_lock** — keeps lock files in sync
+- **terraform_tflint** — lints Terraform code
+- **terraform_trivy** — security scan (HIGH/CRITICAL)
+
+To run all hooks manually against every file:
+
+```bash
+pre-commit run --all-files
+```
 
 ### Step 1: Bootstrap (First Time Only)
 
