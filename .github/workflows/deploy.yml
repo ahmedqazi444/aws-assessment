@@ -140,68 +140,20 @@ jobs:
         run: exit 1
 
   #────────────────────────────────────────────────────────────────
-  # PLAN - PR (posts plan as PR comment for all components)
-  # Read-only: terraform plan only, no apply. Fork PRs are blocked
-  # by OIDC trust policy (only main branch can assume the role).
-  #────────────────────────────────────────────────────────────────
-  plan-pr-global:
-    name: Plan Global (PR)
-    runs-on: ubuntu-latest
-    needs: [fmt, validate, tflint, trivy]
-    if: github.event_name == 'pull_request'
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-      - name: Terraform Plan
-        uses: dflook/terraform-plan@v2
-        with:
-          path: environments/global
-          label: global
-
-  plan-pr-regions:
-    name: Plan ${{ matrix.region }} (PR)
-    runs-on: ubuntu-latest
-    needs: [fmt, validate, tflint, trivy, plan-pr-global]
-    if: github.event_name == 'pull_request'
-    strategy:
-      matrix:
-        region: [us-east-1, eu-west-1]
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-      - name: Terraform Plan
-        uses: dflook/terraform-plan@v2
-        with:
-          path: environments/${{ matrix.region }}
-          label: ${{ matrix.region }}
-          variables: |
-            sns_topic_arn = "${{ secrets.SNS_TOPIC_ARN }}"
-
-  #────────────────────────────────────────────────────────────────
   # PLAN - Global (runs first, skipped for region-only deploys)
-  # Deploy flow only: push to main or workflow_dispatch
+  # On PRs, posts plan as PR comment. Fork PRs are blocked
+  # by OIDC trust policy (only main branch can assume the role).
   #────────────────────────────────────────────────────────────────
   plan-global:
     name: Plan Global
     runs-on: ubuntu-latest
     needs: [fmt, validate, tflint, trivy]
     if: |
-      github.event_name != 'pull_request' &&
-      !(github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy') &&
-      !(github.event_name == 'workflow_dispatch' &&
-        (github.event.inputs.component == 'us-east-1' || github.event.inputs.component == 'eu-west-1'))
+      !(github.event_name == 'workflow_dispatch' && (
+        github.event.inputs.action == 'destroy' ||
+        github.event.inputs.component == 'us-east-1' ||
+        github.event.inputs.component == 'eu-west-1'
+      ))
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
@@ -218,21 +170,18 @@ jobs:
           label: global
 
   #────────────────────────────────────────────────────────────────
-  # PLAN - Regional (runs after global APPLY, so state exists)
-  # Deploy flow only: push to main or workflow_dispatch
+  # PLAN - Regional (after global apply on deploy, after global
+  # plan on PRs). On PRs, posts plan as PR comment.
   #────────────────────────────────────────────────────────────────
   plan-regions:
     name: Plan ${{ matrix.region }}
     runs-on: ubuntu-latest
-    needs: [apply-global]
+    needs: [fmt, validate, tflint, trivy, plan-global, apply-global]
     if: |
-      always() && (
-        needs.apply-global.result == 'success' ||
-        needs.apply-global.result == 'skipped'
-      ) && (
-        github.event_name == 'push' ||
-        (github.event_name == 'workflow_dispatch' && github.event.inputs.action != 'destroy')
-      )
+      always() &&
+      !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.result, 'cancelled') &&
+      !(github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy')
     strategy:
       matrix:
         region: [us-east-1, eu-west-1]
