@@ -1,4 +1,5 @@
 # environments/global/variables.tf
+# PR flow test
 
 variable "aws_profile" {
   description = "AWS CLI profile to use for authentication"
