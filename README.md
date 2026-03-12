@@ -119,6 +119,29 @@ locals {
 - Clear separation between global and regional resources
 - Parallel regional deployments possible
 
+### Why I Chose This Over Provider v6 `for_each`
+
+AWS provider v6 introduced [enhanced multi-region support](https://registry.terraform.io/providers/-/aws/latest/docs/guides/enhanced-region-support) that lets you loop over regions with `for_each` on provider blocks, deploying all regions from a single root module in one apply. I deliberately chose the directory-per-region approach instead. Here's my reasoning:
+
+**Advantages of my approach:**
+
+- **Blast radius isolation** — A bad `terraform apply` in `us-east-1` cannot touch `eu-west-1`. Each region has its own state file, so a corrupted state or a broken plan only impacts one region.
+- **Independent lifecycle** — I can plan, apply, or destroy one region without touching the others. This is useful for staged rollouts (deploy `us-east-1` first, validate, then `eu-west-1`).
+- **Simpler provider config** — One provider per root module, no aliases, no `for_each` on providers. Easy to read and reason about with no dependency on provider v6 features.
+- **Parallel CI/CD** — Each region runs as a separate GitHub Actions matrix job in parallel, since they are independent root modules with independent state.
+- **Per-region customization** — If I need to give one region different settings (e.g., different `vpc_cidr`, different instance sizes), I just edit that region's variables. No need for complex region-keyed maps.
+- **Backward compatible** — Works with any Terraform or OpenTofu version; no dependency on provider v6-specific features.
+
+**Trade-offs I accepted:**
+
+- **Code duplication** — The regional `main.tf` files are nearly identical. Adding a new module means editing every region directory. I mitigate this by keeping the regional files thin (just module calls) and putting all logic in shared modules.
+- **Drift risk** — Because files are copied, it's possible to update one region and forget another. CI validation across all components (the matrix strategy in my workflow) catches this.
+- **Adding a region is manual** — To add `ap-southeast-1`, I'd copy a directory, update locals/backend/provider, and wire it into the workflow matrix. With `for_each`, it would be one entry in a map.
+- **Multiple applies required** — Deploying the full stack requires ordered applies (`global` → regions). The `for_each` approach could handle all regions in a single apply.
+- **No atomic multi-region changes** — If I change a module interface (e.g., add a variable to `modules/lambda`), I must update and apply each region separately, risking a window where regions are inconsistent.
+
+**Bottom line:** For two regions with a clear global/regional split, the isolation and simplicity benefits outweigh the duplication cost. If I needed to scale to many more regions with identical stacks, I'd revisit the `for_each` provider approach.
+
 ---
 
 ## Manual Deployment
@@ -254,7 +277,7 @@ The GitHub Actions workflow (`.github/workflows/deploy.yml`) automates the deplo
 
 | Trigger | Behavior |
 |---------|----------|
-| PR to main | CI checks only (no AWS credentials) |
+| PR to main | CI checks + Terraform plan for all components (posted as PR comments) |
 | Push to main | Plan → Apply global → Plan regions → Apply regions |
 | workflow_dispatch: plan | Plan selected component |
 | workflow_dispatch: apply | Apply selected component |
@@ -287,8 +310,9 @@ This workflow is designed for public repositories:
 
 | Security Measure | Implementation |
 |-----------------|----------------|
-| **PRs run CI checks only** | No AWS credentials exposed to fork PRs |
-| **Plan/Apply require push to main** | Not triggered by PRs |
+| **PRs run plan only (no apply)** | PRs get read-only `terraform plan` posted as comments; apply is blocked |
+| **Fork PRs blocked by OIDC** | OIDC trust policy only allows `main` branch to assume the IAM role, so fork PR plans fail safely |
+| **Apply requires push to main** | Apply/destroy not triggered by PRs |
 | **OIDC trust policy restricted** | Only `main` branch and protected environments can assume IAM role |
 | **Environment protection** | Manual approval required for apply/destroy |
 | **No long-lived credentials** | OIDC federation - no AWS keys stored in GitHub |

@@ -39,11 +39,13 @@ variable "project_name" {
 variable "github_org" {
   description = "GitHub organization or username"
   type        = string
+  default     = "ahmedqazi444"
 }
 
 variable "github_repo" {
   description = "GitHub repository name"
   type        = string
+  default     = "aws-assessment"
 }
 
 locals {
@@ -116,10 +118,10 @@ module "oidc_github" {
   # OIDC provider already exists in account - skip creation
   create_oidc_provider = false
 
-  # SECURITY: Restrict to main branch and protected environments only
-  # NO pull_request access - PRs only run CI checks without AWS credentials
+  # SECURITY: Restrict to main branch, pull requests (plan-only), and protected environments
   github_repositories = [
     "${var.github_org}/${var.github_repo}:ref:refs/heads/main",
+    "${var.github_org}/${var.github_repo}:pull_request",
     "${var.github_org}/${var.github_repo}:environment:global",
     "${var.github_org}/${var.github_repo}:environment:us-east-1",
     "${var.github_org}/${var.github_repo}:environment:eu-west-1"

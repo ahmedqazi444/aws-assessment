@@ -154,10 +154,6 @@ resource "aws_cognito_user" "test" {
     ignore_changes = [password]
   }
 }
-
-#------------------------------------------------------------------------------
-# WAF - CLOUDFRONT SCOPE (for CloudFront distributions)
-#------------------------------------------------------------------------------
 module "waf_cloudfront" {
   source  = "aws-ss/wafv2/aws"
   version = "4.1.3"
