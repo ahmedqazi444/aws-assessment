@@ -24,8 +24,8 @@ Multi-region serverless infrastructure on AWS using Terraform.
     │  │     + WAF association    │    │    │  │     + WAF association    │    │
     │  └────────────┬─────────────┘    │    │  └────────────┬─────────────┘    │
     │  ┌────────────▼─────────────┐    │    │  ┌────────────▼─────────────┐    │
-    │  │  API Gateway (HTTP API)  │    │    │  │  API Gateway (HTTP API)  │    │
-    │  │  JWT Authorizer→Cognito  │    │    │  │  JWT Authorizer→Cognito  │    │
+    │  │ API Gateway (REST API)  │    │    │  │ API Gateway (REST API)  │    │
+    │  │ Cognito Authorizer       │    │    │  │ Cognito Authorizer       │    │
     │  └──┬──────────────────┬────┘    │    │  └──┬──────────────────┬────┘    │
     │     │                  │         │    │     │                  │         │
     │  ┌──▼────┐       ┌─────▼────┐    │    │  ┌──▼────┐       ┌─────▼────┐    │
@@ -50,7 +50,11 @@ Multi-region serverless infrastructure on AWS using Terraform.
 │   ├── us-east-1/        # Regional compute stack
 │   └── eu-west-1/        # Regional compute stack
 ├── modules/
-│   └── compute/          # Reusable compute module (VPC, Lambda, API GW, ECS, DynamoDB)
+│   ├── apigateway/       # REST API + Cognito authorizer + CloudFront
+│   ├── dynamodb/         # DynamoDB table
+│   ├── ecs/              # ECS Fargate task definition + cluster
+│   ├── lambda/           # Lambda functions (greeter, dispatcher)
+│   └── vpc/              # VPC, subnets, NAT, flow logs
 ├── lambda/
 │   ├── greeter/          # /greet endpoint - writes to DynamoDB, publishes to SNS
 │   └── dispatcher/       # /dispatch endpoint - triggers ECS Fargate task
@@ -111,7 +115,7 @@ locals {
 }
 ```
 
-4. **Compute module** (`modules/compute/`) is reused by both regional environments, receiving the region as a variable and global resource ARNs from the remote state.
+4. **Shared modules** (`modules/apigateway/`, `modules/lambda/`, `modules/dynamodb/`, `modules/ecs/`, `modules/vpc/`) are reused by both regional environments, receiving the region as a variable and global resource ARNs from the remote state.
 
 **Benefits:**
 - Independent deployment of each region
