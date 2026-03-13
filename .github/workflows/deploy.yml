@@ -303,7 +303,7 @@ jobs:
     name: Integration Tests
     runs-on: ubuntu-latest
     needs: [apply-regions]
-    if: needs.apply-regions.result == 'success'
+    if: always() && needs.apply-regions.result == 'success'
     steps:
       - uses: actions/checkout@v4
       - name: Configure AWS Credentials
